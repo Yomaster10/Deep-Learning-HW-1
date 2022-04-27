@@ -11,3 +11,5 @@ losses - done
 linear_classifier - done
 
 linear_regression - done
+
+answers - missing part 4
