@@ -42,7 +42,6 @@ def torch_temporary_seed(seed: int):
     try:
         # ====== YOUR CODE: ======
         torch.random.manual_seed(seed)
-        #torch.set_rng_state(seed)
         # ========================
         yield
     finally:
