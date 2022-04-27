@@ -52,10 +52,13 @@ class LinearRegressor(BaseEstimator, RegressorMixin):
 
         w_opt = None
         # ====== YOUR CODE: ======
-        regular = y.size * self.reg_lambda * np.eye(X.shape[1])
-        regular[0, 0] = 0
-        XTy = np.transpose(X) @ np.reshape(y, (y.size, 1))
-        w_opt = np.linalg.inv(np.transpose(X) @ X + regular) @ XTy
+        # Regularization
+        reg = y.size * self.reg_lambda * np.eye(X.shape[1])
+        reg[0, 0] = 0
+        
+        # Inversion
+        XY = np.transpose(X) @ np.reshape(y, (y.size, 1))
+        w_opt = np.linalg.inv(np.transpose(X) @ X + reg) @ XY
         # ========================
 
         self.weights_ = w_opt
@@ -81,15 +84,16 @@ def fit_predict_dataframe(
     """
     # TODO: Implement according to the docstring description.
     # ====== YOUR CODE: ======
-    y = df[target_name]
+    labels = df[target_name]
 
-    y = df[target_name]
     if feature_names is None:
+        # All features
         df = df.drop(target_name, axis=1)
     else:
+        # Selected features
         df = df[feature_names]
 
-    y_pred = model.fit_predict(df, y)
+    y_pred = model.fit_predict(df, labels)
     # ========================
     return y_pred
 
@@ -112,7 +116,8 @@ class BiasTrickTransformer(BaseEstimator, TransformerMixin):
 
         xb = None
         # ====== YOUR CODE: ======
-        xb = np.hstack((np.ones([X.shape[0], 1]), X))
+        ones = np.ones([X.shape[0], 1])
+        xb = np.hstack((ones, X))
         # ========================
 
         return xb
@@ -129,7 +134,7 @@ class BostonFeaturesTransformer(BaseEstimator, TransformerMixin):
         # TODO: Your custom initialization, if needed
         # Add any hyperparameters you need and save them as above
         # ====== YOUR CODE: ======
-        #raise NotImplementedError()
+        self.dropped_features = [11,7,3] #['B', 'DIS', 'CHAS']
         # ========================
 
     def fit(self, X, y=None):
@@ -151,6 +156,9 @@ class BostonFeaturesTransformer(BaseEstimator, TransformerMixin):
 
         X_transformed = None
         # ====== YOUR CODE: ======
+        for i in self.dropped_features:
+            X = np.delete(X, i, 1)
+        
         poly = PolynomialFeatures(self.degree)
         X_transformed = poly.fit_transform(X)
         # ========================
@@ -176,11 +184,13 @@ def top_correlated_features(df: DataFrame, target_feature, n=5):
     # TODO: Calculate correlations with target and sort features by it
 
     # ====== YOUR CODE: ======
-    corr_matrix = df.corr()
-    features_target_corr = corr_matrix[target_feature].drop(target_feature)
-    features_sorted = features_target_corr.map(lambda x: x).abs().sort_values(ascending=False)
-    top_n_features = list(features_sorted.index)[:n]
-    top_n_corr = features_sorted.tolist()[:n]
+    cmat = df.corr()
+    
+    cmat2 = cmat[target_feature].drop(target_feature)
+    cmat3 = cmat2.map(lambda x: x).abs().sort_values(ascending=False)
+    
+    top_n_features = list(cmat3.index)[:n]
+    top_n_corr = list(cmat3)[:n]
     # ========================
 
     return top_n_features, top_n_corr
@@ -196,7 +206,8 @@ def mse_score(y: np.ndarray, y_pred: np.ndarray):
 
     # TODO: Implement MSE using numpy.
     # ====== YOUR CODE: ======
-    mse = np.sum((y - y_pred) ** 2) / (y.shape[0])
+    N = y.shape[0]
+    mse = np.sum((y - y_pred) ** 2) / N
     # ========================
     return mse
 
@@ -211,7 +222,9 @@ def r2_score(y: np.ndarray, y_pred: np.ndarray):
 
     # TODO: Implement R^2 using numpy.
     # ====== YOUR CODE: ======
-    r2 = 1 - np.sum(np.power(y - y_pred, 2)) /np.sum(np.power(y - np.average(y), 2))
+    top = np.sum((y - y_pred)**2)
+    bottom = np.sum((y - np.average(y))**2)
+    r2 = 1 - (top / bottom)
     # ========================
     return r2
 
@@ -244,26 +257,30 @@ def cv_best_hyperparams(
     #  - You can use MSE or R^2 as a score.
 
     # ====== YOUR CODE: ======
-    k_fold_idx = sklearn.model_selection.KFold(k_folds, shuffle=True)
-    best_lambda = 0
-    best_degree = 0
-    best_mse = float('inf')
-    curr_mse = 0
-    for lamda in lambda_range:
-        for degree in degree_range:
-            model.set_params(linearregressor__reg_lambda = lamda, bostonfeaturestransformer__degree = degree)
-            for valid_idx, train_idx in k_fold_idx.split(X):
-                X_valid, y_valid = X[valid_idx], y[valid_idx]
+    k = sklearn.model_selection.KFold(k_folds, shuffle=True)
+    lambda_optimal = 0; degree_optimal = 0; mse_optimal = 1e8 
+    
+    for i in lambda_range:
+        for j in degree_range:
+            mse_current = 0
+            model.set_params(linearregressor__reg_lambda = i, bostonfeaturestransformer__degree = j)
+            
+            for val_idx, train_idx in k.split(X):
+                # Validation-Train Split
+                X_val, y_val = X[val_idx], y[val_idx]
                 X_train, y_train = X[train_idx], y[train_idx]
-                y_pred = model.fit(X_train, y_train).predict(X_valid)
-                curr_mse += mse_score(y_valid, y_pred)
-            if curr_mse < best_mse:
-                best_lambda = lamda
-                best_degree = degree
-                best_mse = curr_mse
-            curr_mse = 0
+                
+                # Prediction + Score
+                y_pred = model.fit(X_train, y_train).predict(X_val)
+                mse_current += mse_score(y_val, y_pred)
+            
+            # Check if this model is the best, according to the MSE score
+            if mse_current < mse_optimal:
+                mse_optimal = mse_current
+                lambda_optimal = i
+                degree_optimal = j
 
-    best_params = {'linearregressor__reg_lambda': best_lambda, 'bostonfeaturestransformer__degree': best_degree}
+    best_params = {'linearregressor__reg_lambda': lambda_optimal, 'bostonfeaturestransformer__degree': degree_optimal}
     # ========================
 
     return best_params
