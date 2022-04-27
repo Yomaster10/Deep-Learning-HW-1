@@ -23,8 +23,8 @@ class LinearClassifier(object):
 
         self.weights = None
         # ====== YOUR CODE: ======
-        shape = (n_features, n_classes)
-        self.weights = torch.normal(mean=0, std=weight_std, size=shape)
+        self.weights = torch.normal(0, weight_std, (self.n_features,self.n_classes))
+
         # ========================
 
     def predict(self, x: Tensor):
@@ -46,7 +46,7 @@ class LinearClassifier(object):
 
         y_pred, class_scores = None, None
         # ====== YOUR CODE: ======
-        class_scores = x @ self.weights
+        class_scores = torch.matmul(x, self.weights)
         y_pred = torch.argmax(class_scores, dim=1)
         # ========================
 
@@ -68,13 +68,9 @@ class LinearClassifier(object):
 
         acc = None
         # ====== YOUR CODE: ======
-        N = y.shape[0]
-    
-        d = y - y_pred
-        correct = d[d==0]
-        num_correct = correct.shape[0]
-    
-        acc = num_correct / N
+        sub = y - y_pred
+        zeros = sub[sub == 0]
+        acc = zeros.shape[0] / y.shape[0]
         # ========================
 
         return acc * 100
@@ -110,45 +106,37 @@ class LinearClassifier(object):
             #     using the weight_decay parameter.
 
             # ====== YOUR CODE: ======
-            # Training Set
             num_of_batches = 0
             for x_batch, y_batch in dl_train:
-                # predict
-                y_pred, class_scores = self.predict(x_batch)
-                # update accuracy
+                '''predict for each mininbatch, calc loss and update weights with SGD '''
+                y_pred, scores = self.predict(x_batch)
                 total_correct += self.evaluate_accuracy(y_batch, y_pred)
-                # update loss
-                data_dependent_curr_loss_term = loss_fn.loss(x_batch, y_batch, class_scores, y_pred)
-                regularization_curr_loss_term = weight_decay * (1/2) * (torch.norm(self.weights).item()**2)
-                total_curr_loss = data_dependent_curr_loss_term + regularization_curr_loss_term
-                average_loss += total_curr_loss
-                # update weights
+                loss_no_r = loss_fn.loss(x_batch, y_batch, scores, y_pred)
+                reg = weight_decay * (1/2) * (torch.norm(self.weights).item()**2)
+                total_temp_loss = loss_no_r + reg
+                average_loss += total_temp_loss
                 self.weights -= learn_rate * loss_fn.grad()
-                # up num of batches by 1
+                
+                
                 num_of_batches += 1
-            # update avg accuracy and loss
+                
+            # avg acc and loss
             train_res[0].append(total_correct / num_of_batches)
             train_res[1].append(average_loss / num_of_batches)
 
-            # Validation Set
+            # Evaluate validation set
             total_correct = 0
             average_loss = 0
             num_of_batches = 0
             for x_batch, y_batch in dl_valid:
-                # predict
-                y_pred, class_scores = self.predict(x_batch)
-                # update accuracy
+                y_pred, scores = self.predict(x_batch)
                 total_correct += self.evaluate_accuracy(y_batch, y_pred)
-                # update loss
-                data_dependent_curr_loss_term = loss_fn.loss(x_batch, y_batch, class_scores, y_pred)
-                regularization_curr_loss_term = weight_decay * (1/2) * (torch.norm(self.weights).item()**2)
-                total_curr_loss = data_dependent_curr_loss_term + regularization_curr_loss_term
-                average_loss += total_curr_loss
-                # update weights - don't need this in validation right?
-                    # self.weights -= learn_rate * loss_fn(grad)
-                # up num of batches by 1
+                loss_no_r = loss_fn.loss(x_batch, y_batch, scores, y_pred)
+                reg = weight_decay * (1/2) * (torch.norm(self.weights).item()**2)
+                total_temp_loss = loss_no_r + reg
+                average_loss += total_temp_loss
                 num_of_batches += 1
-            # update avg accuracy and loss
+            
             valid_res[0].append(total_correct / num_of_batches)
             valid_res[1].append(average_loss / num_of_batches)
             # ========================
@@ -171,16 +159,16 @@ class LinearClassifier(object):
         #  The output shape should be (n_classes, C, H, W).
 
         # ====== YOUR CODE: ======
-        N = self.n_classes
-        W = self.weights
-        
         if has_bias is True:
-            W = W[1:,:]
+            weights = self.weights[1:,:]
+            w_images = torch.transpose(weights,0,1)
+            shape_to_reshape_to = (self.n_classes, img_shape[0], img_shape[1], img_shape[2])
+            w_images = w_images.reshape(shape_to_reshape_to)
+        else:
+            w_images = torch.transpose(self.weights,0,1)
+            shape_to_reshape_to = (self.n_classes, img_shape[0], img_shape[1], img_shape[2])
+            w_images = w_images.reshape(shape_to_reshape_to)
             
-        w_images = torch.transpose(W,0,1)
-        new_shape = (N, img_shape[0], img_shape[1], img_shape[2])
-        
-        w_images = w_images.reshape(new_shape)
         # ========================
 
         return w_images

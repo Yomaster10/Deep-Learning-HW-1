@@ -33,7 +33,7 @@ class SVMHingeLoss(ClassifierLoss):
         Calculates the Hinge-loss for a batch of samples.
 
         :param x: Batch of samples in a Tensor of shape (N, D).
-        :param y: Ground-truth labels for these samples: (N,)
+        :param y: gt_labels for these samples: (N,)
         :param x_scores: The predicted class score for each sample: (N, C).
         :param y_predicted: The predicted class label for each sample: (N,).
         :return: The classification loss as a Tensor of shape (1,).
@@ -52,22 +52,17 @@ class SVMHingeLoss(ClassifierLoss):
 
         loss = None
         # ====== YOUR CODE: ======
-        N = y.shape[0]
-        y_scores = x_scores[[range(N)], y]
-        y_scores = y_scores.squeeze().unsqueeze(1)
-        
-        # Hinge loss matrix
-        M = self.delta + x_scores - y_scores
+        yi_scores = x_scores[[range(y.shape[0])], y]
+        yi_scores = yi_scores.squeeze().unsqueeze(1)
+        M = self.delta + x_scores - yi_scores
         M[M<0] = 0
-        M[[range(N)], y] = 0
-        
-        # In-sample loss, no regularization
-        loss = M.sum() / N
+        M[[range(y.shape[0])], y] = 0
+        loss = (M.sum() / x.shape[0])
         # ========================
 
         # TODO: Save what you need for gradient calculation in self.grad_ctx
         # ====== YOUR CODE: ======
-        self.grad_ctx = {'M' : M, 'x': x, 'y': y}
+        self.grad_ctx = {'samples': x, 'gt_labels': y, 'loss_m': M}
         # ========================
 
         return loss
@@ -85,16 +80,15 @@ class SVMHingeLoss(ClassifierLoss):
 
         grad = None
         # ====== YOUR CODE: ======
-        M = self.grad_ctx['M']
-        x = self.grad_ctx['x']
-        y = self.grad_ctx['y']
-        N = x.shape[0]
+        x = self.grad_ctx['samples']
+        y = self.grad_ctx['gt_labels']
         
-        M[M!=0] = 1
-        M[[range(N)],y] = -1 * M.sum(dim=1,dtype=x.dtype)
-        x_T = torch.transpose(x,0,1)
+        IND = self.grad_ctx['loss_m']
         
-        grad = (x_T @ M) / N
+        IND[IND!=0] = 1
+        IND[[range(IND.shape[0])],y] = (-1*(IND.sum(dim=1,dtype=x.dtype)))
+        x_transposed = torch.transpose(x, 0, 1)
+        grad = (torch.matmul(x_transposed, IND) / x.shape[0])
         # ========================
 
         return grad
