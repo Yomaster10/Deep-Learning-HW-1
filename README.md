@@ -8,4 +8,6 @@ knn_classifier - done
 
 losses - done
 
-linear classifier - done
+linear_classifier - done
+
+linear_regression - done
