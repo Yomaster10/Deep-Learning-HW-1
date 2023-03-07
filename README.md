@@ -1,17 +1,11 @@
-dataloaders - done
-
-datasets - done
-
-transforms - done
-
-knn_classifier - done
-
-losses - done
-
-linear_classifier - done
-
-linear_regression - done
-
-answers - done
-
-python main.py prepare-submission --id 211870241 --id 206263386
+<h1 align="center">
+  Deep Learning on Computational Accelerators - HW#1
+  
+  Exact Motion Planning
+</h1>
+<p align="center">
+  <img src="https://github.com/Yomaster10/ARMP-HW1/blob/master/Images/VizGraph.png">
+</p>
+<h4 align="center">
+  Written by Yotam Granov & Yuval Yaniv, April 2022
+</h4>
