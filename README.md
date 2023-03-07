@@ -1,7 +1,7 @@
 <h1 align="center">
   Deep Learning on Computational Accelerators - HW#1
   
-  Supervised Learning
+  Supervised Learning & PyTorch
 </h1>
 <p align="center">
   <img src="https://github.com/Yomaster10/Deep-Learning-HW-1/blob/main/Numbers.png">
